@@ -1,12 +1,17 @@
+use std::collections::HashMap;
+
 struct MathParser {
+    functions: HashMap<char, Function>,
+    variables: HashMap<char, f32>,
+}
+
+struct Function {
+    param: char,
+    body: CalculatableExpr,
 }
 
 enum ExprType {
-    FunctionDefinition {
-        name: char,
-        param: char,
-        body: CalculatableExpr, // your internal expression representation
-    },
+    FunctionDefinition(char), // The function definition is saved under the MathParser struct in a Hashmap
     Equation {
         left: CalculatableExpr,
         op: ComparisonOp, // <, >, <=, >=, =, !=
@@ -22,15 +27,13 @@ enum ExprType {
 
 struct CalculatableExpr(Vec<SimpleToken>);
 
-// Only for parsing the strings by the user
+// Only for tokenizing the strings by the user
 #[derive(Debug, PartialEq)]
 enum ComplexToken {
     Number(f32),
     Operator(Operator),
     ComparisonOp(ComparisonOp),
-    Variable(char),
-    Constant(char),
-    Function(String),
+    Identifier(char),
     LeftParenthesis,
     RightParenthesis,
     Comma,
@@ -87,7 +90,7 @@ Rules for when an expression is a function
 Steps for parsing a math expression
 
 1 Get the string, for example "g(y)*4=2y-4/10"
-1.5 Tokenize the input ofc
+1.5 Tokenize the input to a Vec<ComplexToken>
 2 Figure out what type of expression this is, e.g. function, equation with unknowns, or maybe a simple equation with a single constant output etc... In this example it would be a function called g, with a variable y
 3 Then simplifying till it's something that can be either plotted or calculated, which would be g(y)=(2y-4/10)/4
 4 Optional, but simplifying that to the simplest form which would be g(y)=y/2-0.1
@@ -97,8 +100,7 @@ Steps for parsing a math expression
 
 
 impl MathParser {
-    pub fn parse(input_str: &str) -> Vec<ComplexToken> {
-        // Tokenize the input to complex tokens
+    pub fn tokenize_input(input_str: &str) -> Vec<ComplexToken> {
 
         let mut expr: Vec<ComplexToken> = Vec::new();
 
@@ -123,7 +125,6 @@ impl MathParser {
                 past_numbers.clear();
             }
 
-            // Comparison op check
             if "<>!".contains(char) {
                 if let Some('=') = chars.peek() {
                     chars.next().unwrap();
@@ -147,13 +148,18 @@ impl MathParser {
                 continue;
             }
 
-            // TODO:
-            // Variable
-            // Constant
-            // Function
-            // LeftParenthesis
-            // RightParenthesis
-            // Comma
+            if char.is_alphabetic() {
+                expr.push(ComplexToken::Identifier(char));
+
+                continue;
+            }
+
+            expr.push(match char {
+                '(' => ComplexToken::LeftParenthesis,
+                ')' => ComplexToken::RightParenthesis,
+                ',' => ComplexToken::Comma,
+                idk_what_it_is => ComplexToken::Unknown(idk_what_it_is),
+            });
         }
 
         if !past_numbers.is_empty() {
@@ -198,9 +204,9 @@ mod tests {
 
     #[test]
     fn test_mathparser() {
-        let string = "!=111=!=*+ - 143276 ^/";
+        let string = "y=sin(x)";
 
-        let result = MathParser::parse(string);
+        let result = MathParser::tokenize_input(string);
 
         println!("{:?}", result);
     }
